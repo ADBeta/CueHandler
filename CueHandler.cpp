@@ -31,6 +31,8 @@ const char* invalidCueFile = "The input file is not a .cue file\n";
 const char* invalidTRACK = "A TRACK in the .cue file is invalid or corrupt\n";
 const char* invalidFILE = "A FILE in the .cue file is invalid or corrupt\n";
 
+const char* noFilename = "A FILE In the .cue has no filename.\n";
+
 const char* sectByte = "Cannot convert timestamp - Bytes in dump do not match\
 the Sector Size. This is a corrupted or modified dump.\n";
 
@@ -72,15 +74,6 @@ void Cuehandler::forceCueError(const char* msg) {
 }
 
 
-/*** Enum mapped strings (only for printFILE) *********************************/
-//TODO move these 
-const std::string t_FILE_str[] = {"UNKNOWN", "BINARY", "MP3"};   
-//
-const std::string t_TRACK_str[] = {
-	"UNKNOWN", "AUDIO", "CDG", "MODE1/2048", "MODE1/2352", "MODE2/2336", 
-	"MODE2/2352", "CDI/2336", "CDI/2352"
-};
-
 
 /*** CueHandler Functions *****************************************************/
 CueHandler::CueHandler(const std::string filename) {
@@ -117,7 +110,15 @@ CueHandler::~CueHandler() {
 
 
 
+/*** Enum mapped strings for type detection ***********************************/
+const std::string t_FILE_str[] = {
+	"UNKNOWN", "BINARY", "MP3"
+};   
 
+const std::string t_TRACK_str[] = {
+	"UNKNOWN", "AUDIO", "CDG", "MODE1/2048", "MODE1/2352", "MODE2/2336", 
+	"MODE2/2352", "CDI/2336", "CDI/2352"
+};
 
 /*** FILE Vector Functions ****************************************************/
 t_LINE CueHandler::LINEStrToType(const std::string lineStr) {	
@@ -133,8 +134,10 @@ t_LINE CueHandler::LINEStrToType(const std::string lineStr) {
 	if(lineStr.find("REM ") != std::string::npos) return t_LINE::REM; 
 	
 	//Failure to find any known string means it's an invalid line.
-	errMsg(errStr::invalidCmd); //TODO optional
-	return t_LINE::INVALID; //Fake return to avoid compile errors.
+	//Error or warn depending on user settings
+	handleCueError(errStr::invalidCmd);
+	//Return invalid line type, incase warn or ignore
+	return t_LINE::INVALID; 
 }
 
 t_TRACK CueHandler::TRACKStrToType(const std::string trackStr) {
@@ -144,21 +147,19 @@ t_TRACK CueHandler::TRACKStrToType(const std::string trackStr) {
 	//If the TRACK string is empty, this is extremely corrupt. force and error
 	if(typeStr == "") forceCueError(errStr::invalidTRACK);
 	
-	//Get number of strings in t_TRACK_str array.
-	unsigned int TRACKTypes = sizeof(t_TRACK_str)/sizeof(t_TRACK_str[0]);
-	
-	//TODO better method
-	//Go through all elements in t_TRACK_str (current track string)
-	for(unsigned int cType = 0; cType < TRACKTypes; cType++) {
-		//If the input string and the TRACKType string match
+	//Go through all elements in t_TRACK (MAX_TYPES)
+	for(unsigned int cType = 0; cType < t_TRACK::MAX_TYPES; cType++) {
+		//If the input string and the //TODO TRACKType string match
 		if(typeStr.compare(t_TRACK_str[cType]) == 0) {
 			//Return the matched type as enum int
 			return (t_TRACK)cType;
 		}
 	}
 	
-	//If nothing matches, return UNKNOWN TODO error message invalid and exit
-	return t_TRACK::UNKNOWN; //TODO Optional
+	//If nothing matches, let the user config decide to error, warn or ignore
+	handleCueError(errStr::invalidTRACK);
+	//Return UNKNOWN if the system warns or ignores the error.
+	return t_TRACK::UNKNOWN;
 }
 
 t_FILE CueHandler::FILEStrToType(const std::string fileStr) {
@@ -183,11 +184,11 @@ t_FILE CueHandler::FILEStrToType(const std::string fileStr) {
 		}
 	}
 	
-	//If nothing matches, TODO error message invalid and exit
+	//If nothing matched, let the user config decide to error, warn or ignore
+	handleCueError(errStr::invalidFILE);
+	//Return UNKNOWN if nothing matched and the system doesn't error
 	return t_FILE::UNKNOWN;
 }
-
-
 
 
 
@@ -409,7 +410,26 @@ std::string CueHandler::generateINDEXLine(const IndexData &refINDEX) {
 }
 
 
+
+
+
+
+
 /*** CUE Data handling ********************************************************/
+std::string CueHandler::getFilenameFromLine(const std::string line) {
+
+	//Get the First and last quote in the string
+	size_t fQuote = line.find('\"') + 1;
+	size_t lQuote = line.find('\"', fQuote);
+	
+	//If the last quote is npos (could detect on first too, but may be slower)
+	if(lQuote == std::string::npos) foreCueError(errStr::noFilename);
+	
+	//Return a substring of the input fron fQuote, of size first - last 
+	return line.substr(fQuote, lQuote - fQuote);
+}
+
+
 void CueHandler::getCueData() {
 	//Clean the FILE vector RAM
 	FILE.clear();
@@ -430,7 +450,7 @@ void CueHandler::getCueData() {
 		t_LINE cLineType = LINEStrToType(cLineStr);
 		
 		//If the current line is invalid, exit with error message
-		if(cLineType == t_LINE::INVALID) errMsg(errStr::invalidCmd);
+		if(cLineType == t_LINE::INVALID) forceCueError(errStr::invalidCmd);
 		
 		//If the current line is a REM command
 		if(cLineType == t_LINE::REM) {
@@ -441,20 +461,18 @@ void CueHandler::getCueData() {
 		
 		//If the current line is a FILE command
 		if(cLineType == t_LINE::FILE) {
+			//Get the FILE type string, and the FILENAME String
 			t_FILE fileType = FILEStrToType(cLineStr);
-			
-			//Get the FILENAME string (always between quotations)
-			size_t fQuote = cLineStr.find('\"') + 1;
-			size_t lQuote = cLineStr.find('\"', fQuote);
+			std::string fileName = getFilenameFromLine(cLineStr);
 			
 			//push new FILE to the stack
-			pushFILE(cLineStr.substr(fQuote, lQuote - fQuote), fileType);
+			pushFILE(fileName, fileType);
 		}
 		
 		//If the current line is a TRACK command
 		if(cLineType == t_LINE::TRACK) {
 			//Make sure a FILE is availible to push to
-			if(FILE.empty() == true) errMsg(errStr::badPushTrack);
+			if(FILE.empty() == true) forceCueError(errStr::badPushTrack);
 		
 			//Get ID (second word), and TYPE
 			unsigned int lineID = std::stoi(getWord(cLineStr, 2));
@@ -467,7 +485,9 @@ void CueHandler::getCueData() {
 		//INDEX line type	
 		if(cLineType == ltINDEX) {
 			//Make sure a TRACK is availible to push to
-			if(FILE.back().TRACK.empty() == true) errMsg(errStr::badPushIndex);
+			if(FILE.back().TRACK.empty() == true) {
+				forceCueError(errStr::badPushIndex);
+			}
 			
 			//Get ID (second word), and timestamp (third word)
 			unsigned int lineID = std::stoi(getWord(cLineStr, 2));
@@ -519,7 +539,7 @@ int CueHandler::combineCueFiles(CueHandler &combined, const std::string outBin,
 
 void CueHandler::outputCueFile() {
 	//Try to create a new TeFiEd file. Exit if not
-	if(cueFile->create() != 0) errMsg(errStr::createFail);
+	if(cueFile->create() != 0) forceCueError(errStr::createFail);
 	
 	//Go through all the callers' FILE vector
 	for(size_t cFile = 0; cFile < this->FILE.size(); cFile++) {
@@ -554,7 +574,7 @@ void CueHandler::outputCueFile() {
 
 void CueHandler::printFILE(FileData & pFILE) {
 	//Check if pFILE is empty, error if attempted read from empty
-	if(pFILE.FILENAME.empty()) errMsg(errStr::fileEmpty);
+	if(pFILE.FILENAME.empty()) forceCueError(errStr::fileEmpty);
 
 	//Print filename and data
 	std::cout << "FILENAME: " << pFILE.FILENAME;
@@ -606,7 +626,7 @@ std::string CueHandler::bytesToTimestamp(const unsigned long bytes) {
 	unsigned long sectors = bytes / 2352;
 	
 	//Error check if the input is divisible by a sector. Exit if not
-	if(bytes % 2352 != 0) errMsg(errStr::sectByte);
+	if(bytes % 2352 != 0) forceCueError(errStr::sectByte);
 	
 	//75 sectors per second. Frames are the left over sectors from a second
 	unsigned short seconds = sectors / 75;
@@ -617,7 +637,7 @@ std::string CueHandler::bytesToTimestamp(const unsigned long bytes) {
 	seconds = seconds % 60;
 	
 	//If minutes exceeds 99, there is probably an error due to Audio CD Standard
-	if(minutes > 99) errMsg(errStr::timeOverMax);
+	if(minutes > 99) forceCueError(errStr::timeOverMax);
 	
 	std::string timestamp;
 	//Now the string can be formed from the values. Need to 0 pad each value
@@ -629,7 +649,7 @@ std::string CueHandler::bytesToTimestamp(const unsigned long bytes) {
 
 unsigned long CueHandler::timestampToBytes(const std::string timestamp) {
 	//Make sure the string input is long enough to have xx:xx:xx timestamp
-	if(timestamp.length() != 8) errMsg(errStr::timestampLength);
+	if(timestamp.length() != 8) forceCueError(errStr::timestampLength);
 
 	//Strip values from the timestamp. "MM:SS:ff" ff = sectors
 	unsigned short minutes = std::stoi(timestamp.substr(0, 2));
@@ -646,7 +666,7 @@ unsigned long CueHandler::timestampToBytes(const std::string timestamp) {
 	unsigned long bytes = sectors * 2352;
 	
 	//Error check if the input is divisible by a sector. Exit if not
-	if(bytes % 2352 != 0) errMsg(errStr::sectByte);
+	if(bytes % 2352 != 0) forceCueError(errStr::sectByte);
 	
 	return bytes;
 }
@@ -679,12 +699,10 @@ std::string CueHandler::getWord(const std::string input, unsigned int index) {
 				break;
 			}
 		}
-	
 	} while(wordStart < input.size());	
 	
 	//If the index could not be found, return an empty string
-	if(wordIndex < index) output = "";
-	
+	if(wordIndex < index) return "";
 	return output;
 }
 

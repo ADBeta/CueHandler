@@ -20,14 +20,15 @@
 #define CUE_HANDLER_H
 
 /*** Enums and strings of enums ***********************************************/
-
 //Valid CUE file line types, including INVALID, REM and EMPTY string types.
-enum class t_LINE { UNKNOWN, EMPTY, REM, FILE, TRACK, INDEX, INVALID };
+enum class t_LINE { 
+	UNKNOWN, EMPTY, REM, FILE, TRACK, INDEX, INVALID, MAX_TYPES 
+};
 
 //Valid FILE formats. (only binary is supported for now)
-enum class t_FILE { UNKNOWN, BINARY, MP3 };
-//String of LINE types mapped to enum
-extern const std::string t_FILE_str[];
+enum class t_FILE { 
+	UNKNOWN, BINARY, MP3, MAX_TYPES
+};
 
 //Valid TRACK types  
 /*	AUDIO		Audio/Music (2352 — 588 samples)
@@ -38,8 +39,13 @@ extern const std::string t_FILE_str[];
 	MODE2/2352	CD-ROM XA Mode 2 Data (raw)
 	CDI/2336	CDI Mode 2 Data
 	CDI/2352	CDI Mode 2 Data                                               */
-enum class t_TRACK { UNKNOWN, AUDIO, CDG, MODE1_2048, MODE1_2352, MODE2_2336,
-                    MODE2_2352, CDI_2336, CDI_2352 };
+enum class t_TRACK { 
+	UNKNOWN, AUDIO, CDG, MODE1_2048, MODE1_2352, MODE2_2336, MODE2_2352, 
+	CDI_2336, CDI_2352, MAX_TYPES
+};
+
+//Strings of respective types mapped to enum values
+extern const std::string t_FILE_str[];
 extern const std::string t_TRACK_str[];
 
 /*** Cue file data structs ****************************************************/
@@ -154,7 +160,15 @@ class CueHandler {
 	//Converts IndexData Object into a string which is a CUE file line
 	std::string generateINDEXLine(const IndexData &);
 	
+	
+	
+	
+	
+	
 	/*** Input / Output CUE Handling ******************************************/
+	//Gets the FILENAME from a FILE line string
+	std::string getFilenameFromLine(const std::string line);
+	
 	//Gets all the data from a .cue file and populates the FILE vector.
 	void getCueData();
 	
