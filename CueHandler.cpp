@@ -15,11 +15,9 @@
 #include <iostream>
 #include <vector>
 
-
-//TODO remove all errormsg occurances
-//tidy up a lot of stuf
-//remove any references to helpers.h
-//Finish error conversion to force or optional
+//TODO 
+//175		substrNonEmpty
+//484		cleanFILE
 
 
 /*** Error message handler ****************************************************/
@@ -32,9 +30,17 @@ const char* invalidTRACK = "A TRACK in the .cue file is invalid or corrupt\n";
 const char* invalidFILE = "A FILE in the .cue file is invalid or corrupt\n";
 
 const char* noFilename = "A FILE In the .cue has no filename.\n";
+const char* unknownFILE = "A FILE being validated is of type UNKNOWN\n";
+
+const char* overTRACKMax = "More than 99 TRACKs exist. Not a standard CD\n";
+const char* unknownTRACK = "A TRACK being validated is of type UNKNOWN\n";
+
+const char* overINDEXMax = "More than 99 INDEXs exist. Not a standard CD\n";
+const char* sectorBytesWrong = "An INDEXs' BYTES do not allign with the\
+ Sector size. Incorrect TRACK MODE or corrupt image.\n";
 
 const char* sectByte = "Cannot convert timestamp - Bytes in dump do not match\
-the Sector Size. This is a corrupted or modified dump.\n";
+ the Sector Size. This is a corrupted or modified dump.\n";
 
 const char* timestampLength = "The timestamp string is not the right size\n";
 const char* timeOverMax = "INDEX Timestamp exceeds 99 Minutes.\n";
@@ -43,7 +49,6 @@ const char* createFail = "Failed to create a .cue file to output data to\n";
 const char* fileEmpty = "A non-existent FILE was attempted to be read.\n";
 
 const char* invalidCmd = ".cue file contains an unrecognised command (line)\n";
-
 
 const char* badPushTrack = "Attempted to push a TRACK, but no FILE exists\n";
 const char* badPushIndex = "Attempted to push an INDEX, but no TRACK exists\n";
@@ -68,7 +73,7 @@ void CueHandler::handleCueError(const char* msg) {
 	}
 }
 
-void Cuehandler::forceCueError(const char* msg) {
+void CueHandler::forceCueError(const char* msg) {
 	std::cerr << errStr::errMsg << msg;
 	exit(EXIT_FAILURE);
 }
@@ -84,10 +89,9 @@ CueHandler::CueHandler(const std::string filename) {
 	cueFile->setByteLimit(102400);
 	
 	//Make sure the input filename is a valid .cue file. Exit if not
-	if( validateCueFilename(filename) != 0 ) {
-		forceCueError(errStr::invalidCueFile);
-	}
-	
+	//Validate will end execution or warn if there are issues
+	validateCueFilename(filename);
+		
 	//Debug option
 	//cueFile->setVerbose(true);
 }
@@ -148,11 +152,11 @@ t_TRACK CueHandler::TRACKStrToType(const std::string trackStr) {
 	if(typeStr == "") forceCueError(errStr::invalidTRACK);
 	
 	//Go through all elements in t_TRACK (MAX_TYPES)
-	for(unsigned int cType = 0; cType < t_TRACK::MAX_TYPES; cType++) {
+	for(int compType = 0; compType < (int)t_TRACK::MAX_TYPES; compType++) {
 		//If the input string and the //TODO TRACKType string match
-		if(typeStr.compare(t_TRACK_str[cType]) == 0) {
+		if(typeStr.compare(t_TRACK_str[compType]) == 0) {
 			//Return the matched type as enum int
-			return (t_TRACK)cType;
+			return (t_TRACK)compType;
 		}
 	}
 	
@@ -171,16 +175,12 @@ t_FILE CueHandler::FILEStrToType(const std::string fileStr) {
 	//If the FILE type string is empty, this is extremely corrupt. Force error
 	if(typeStr == "") forceCueError(errStr::invalidFILE);
 	
-	//Get number of strings in t_FILE_str array.
-	unsigned int FILETypes = sizeof(t_FILE_str)/sizeof(t_FILE_str[0]);
-	
-	//TODO better method for this
-	//Go through all elements in t_FILE_str (current track string)
-	for(unsigned int cType = 0; cType < FILETypes; cType++) {
+	//Go through all elements in t_FILE_str and string compare them to input
+	for(int compType = 0; compType < (int)t_FILE::MAX_TYPES; compType++) {
 		//If the input string and the TRACKType string match
-		if(typeStr.compare(t_FILE_str[cType]) == 0) {
+		if(typeStr.compare(t_FILE_str[compType]) == 0) {
 			//Return the matched type as enum int
-			return (t_FILE)cType;
+			return (t_FILE)compType;
 		}
 	}
 	
@@ -190,127 +190,95 @@ t_FILE CueHandler::FILEStrToType(const std::string fileStr) {
 	return t_FILE::UNKNOWN;
 }
 
-
-
-
-
-
 /*** Type to String conversion ************************************************/
 std::string CueHandler::FILETypeToStr(const t_FILE fileType) {
-	//Get UNKNOWN done early.
-	//TODO
-	if(fileType == t_FILE::UNKNOWN) return t_FILE_str[t_FILE::UNKNOWN];
+	std::string typeOut;
 	
-	//Get number of strings in t_FILE_str array.
-	unsigned int FILETypes = sizeof(t_FILE_str)/sizeof(t_FILE_str[0]);
-	
-	//Go through all elements in t_FILE_str (current type string)
-	for(unsigned int cType = 0; cType < FILETypes; cType++) {
+	//Go through all elements in t_FILE and match it with input type
+	for(int compType = 0; compType < (int)t_FILE::MAX_TYPES; compType++) {
 		//If the input type matches type in enum 
-		if(fileType == (t_FILE)cType) {
-			//Return the matched type string
-			return t_FILE_str[cType];
+		if(fileType == (t_FILE)compType) {
+			//Set the output string
+			typeOut = t_FILE_str[compType];
 		}
 	}
 	
-	//If everything else fails (it shouldn't) return unknown string
-	return t_FILE_str[t_FILE::UNKNOWN];
+	//Return the matched type string
+	return typeOut;
 }
-
 
 std::string CueHandler::TRACKTypeToStr(const t_TRACK trackType) {
-	//Get UNKNOWN done early.
-	if(trackType == t_TRACK::UNKNOWN) return t_TRACK_str[t_TRACK::UNKNOWN];
-	
-	//Get number of strings in t_TRACK_str array.
-	unsigned int TRACKTypes = sizeof(t_TRACK_str)/sizeof(t_TRACK_str[0]);
+	std::string typeOut;	
 	
 	//Go through all elements in t_TRACK_str (current type string)
-	for(unsigned int cType = 0; cType < TRACKTypes; cType++) {
+	for(int compType = 0; compType < (int)t_TRACK::MAX_TYPES; compType++) {
 		//If the input type matches type in enum 
-		if(trackType == (t_TRACK)cType) {
-			//Return the matched type string
-			return t_TRACK_str[cType];
+		if(trackType == (t_TRACK)compType) {
+			//Set the output string
+			typeOut = t_FILE_str[compType];
 		}
 	}
 	
-	//If everything else fails (it shouldn't) return unknown string
-	return t_TRACK_str[t_TRACK::UNKNOWN];
+	//Return the matched type string
+	return typeOut;
 }
 
+
 /*** Data Validation functions. Returns specific error codes ******************/
-int CueHandler::validateCueFilename(std::string cueStr) {
+void CueHandler::validateCueFilename(std::string cueStr) {
 	size_t npos = std::string::npos;
 
 	//Make sure the file extension is .cue or .CUE 
 	if(cueStr.find(".cue") == npos && cueStr.find(".CUE") == npos) {
-		return 1;
+		forceCueError(errStr::invalidCueFile);
 	}
-	
-	//Valid input
-	return 0;
 }
 
-
-
-
-
-
-
-
-
-
-
-//TODO
-int CueHandler::validateFILE(const FileData &refFILE) {
-	if(refFILE.TYPE == ftUNKNOWN) {
-		errorMsg(0, "validateFILE", "FILE TYPE is UNKNOWN");
-		return 1;
+void CueHandler::validateFILE(const FileData &refFILE) {
+	//A file is invalid if:
+	//No FILENAME
+	if(refFILE.FILENAME == "") {
+		//if there is no FILENAME this is a badly corrupted FILE
+		forceCueError(errStr::noFilename);
 	}
 	
-	//Normal/Valid return
-	return 0;
+	//UNKNOWN file type 
+	if(refFILE.TYPE == t_FILE::UNKNOWN) {
+		//Depending on strictness level, warn error or ignore.
+		handleCueError(errStr::unknownFILE);
+	}
 }
 
-int CueHandler::validateTRACK(const TrackData &refTRACK) {
+void CueHandler::validateTRACK(const TrackData &refTRACK) {
+	//A TRACK is invalid if:
+	//It is over the 99th TRACK in a file
 	if(refTRACK.ID > 99) {
-		errorMsg(0, "validateTRACK", "TRACK ID is greater than 99.");
-		return 1;
+		//Let the user settings decide if error, warn or ignore
+		handleCueError(errStr::overTRACKMax);
 	}
 	
-	if(refTRACK.TYPE == ttUNKNOWN) {
-		errorMsg(0, "validateTRACK", "TRACK TYPE is UNKNOWN.");
-		return 2;
+	//it is an UNKNOWN type
+	if(refTRACK.TYPE == t_TRACK::UNKNOWN) {
+		handleCueError(errStr::unknownTRACK);
 	}
-
-	//Normal/Valid return
-	return 0;
 }
 
-int CueHandler::validateINDEX(const IndexData &refINDEX) {
+void CueHandler::validateINDEX(const IndexData &refINDEX) {
+	//An INDEX is invalid if:
+	//There are more than 99 of them in a TRACK
 	if(refINDEX.ID > 99) {
-		errorMsg(0, "validateINDEX", "INDEX ID is greater than 99.");
-		return 1;
+		handleCueError(errStr::overINDEXMax);
 	}
 
-	//Check if BYTES is divisible by SECTOR size
+	//Check if BYTES is divisible by SECTOR size TODO
+	/*
 	if(refINDEX.BYTES % 2352 != 0) {
 		errorMsg(0, "validateINDEX",
 		         "INDEX BYTES not divisible by SECTOR size");
 		return 2;
 	}
-
-	//Normal/Valid return
-	return 0;
+	*/
 }
-
-
-
-
-
-
-
-
 
 /*** CUE Metadata structure Adding ********************************************/
 void CueHandler::pushFILE(const std::string FN, const t_FILE TYPE) {
@@ -321,7 +289,8 @@ void CueHandler::pushFILE(const std::string FN, const t_FILE TYPE) {
 	tempFILE.FILENAME = FN;
 	tempFILE.TYPE = TYPE;
 	
-	if( validateFILE(tempFILE) != 0) return;
+	//Validate will end execution or warn if there are issues
+	validateFILE(tempFILE);
 	
 	//Push tempFILE to the FILE vect
 	FILE.push_back(tempFILE);
@@ -334,7 +303,8 @@ void CueHandler::pushTRACK(const unsigned int ID, const t_TRACK TYPE) {
 	tempTRACK.ID = ID;
 	tempTRACK.TYPE = TYPE;
 	
-	if( validateTRACK(tempTRACK) != 0) return;
+	//Validate will end execution or warn if there are issues
+	validateTRACK(tempTRACK);
 	
 	//Get a pointer to the last entry in the FILE object
 	FileData *pointerFILE = &FILE.back();
@@ -349,7 +319,8 @@ void CueHandler::pushINDEX(const unsigned int ID, const unsigned long BYTES) {
 	tempINDEX.ID = ID;
 	tempINDEX.BYTES = BYTES;
 	
-	if( validateINDEX(tempINDEX) != 0) return;
+	//Validate will end execution or warn if there are issues
+	validateINDEX(tempINDEX);
 	
 	//Get a pointer to the last FILE and TRACK Object
 	TrackData *pointerTRACK = &FILE.back().TRACK.back();
@@ -368,7 +339,8 @@ void CueHandler::pushINDEX(const unsigned int ID, const unsigned long BYTES) {
 
 /*** CUE String Generation ****************************************************/
 std::string CueHandler::generateFILELine(const FileData &refFILE) {
-	if( validateFILE(refFILE) != 0) return "";
+	//Validate will end execution or warn if there are issues
+	validateFILE(refFILE);
 	
 	std::string outputLine = "FILE ";
 	
@@ -383,7 +355,8 @@ std::string CueHandler::generateFILELine(const FileData &refFILE) {
 	
 //Converts TrackData Object into a string which is a CUE file line
 std::string CueHandler::generateTRACKLine(const TrackData &refTRACK) {
-	if( validateTRACK(refTRACK) != 0) return "";
+	//Validate will end execution or warn if there are issues
+	validateTRACK(refTRACK);
 	
 	std::string outputLine = "  TRACK ";
 	
@@ -397,7 +370,8 @@ std::string CueHandler::generateTRACKLine(const TrackData &refTRACK) {
 	
 //Converts IndexData Object into a string which is a CUE file line
 std::string CueHandler::generateINDEXLine(const IndexData &refINDEX) {
-	if( validateINDEX(refINDEX) != 0) return "";
+	//Validate will end execution or warn if there are issues
+	validateINDEX(refINDEX);
 	
 	std::string outputLine = "    INDEX ";
 	
@@ -423,7 +397,7 @@ std::string CueHandler::getFilenameFromLine(const std::string line) {
 	size_t lQuote = line.find('\"', fQuote);
 	
 	//If the last quote is npos (could detect on first too, but may be slower)
-	if(lQuote == std::string::npos) foreCueError(errStr::noFilename);
+	if(lQuote == std::string::npos) forceCueError(errStr::noFilename);
 	
 	//Return a substring of the input fron fQuote, of size first - last 
 	return line.substr(fQuote, lQuote - fQuote);
@@ -483,7 +457,7 @@ void CueHandler::getCueData() {
 		}
 		
 		//INDEX line type	
-		if(cLineType == ltINDEX) {
+		if(cLineType == t_LINE::INDEX) {
 			//Make sure a TRACK is availible to push to
 			if(FILE.back().TRACK.empty() == true) {
 				forceCueError(errStr::badPushIndex);
@@ -504,6 +478,7 @@ void CueHandler::getCueData() {
 int CueHandler::combineCueFiles(CueHandler &combined, const std::string outBin,
                                 const std::vector <unsigned long> offsetBytes) {
 	//Clear the pointer object FILE vector RAM
+	//TODO
 	combined.cleanFILE();
 		
 	//Push the passed filename (relative, not output) to the FILE Vector
@@ -591,7 +566,7 @@ void CueHandler::printFILE(FileData & pFILE) {
 		std::cout << "TRACK " << padIntStr(pTRACK.ID, 2);
 		
 		//Print TRACK TYPE variable
-		std::cout << "        TYPE: " << t_TRACK_str[pTRACK.TYPE] << "\n";
+		std::cout << "        TYPE: " << t_TRACK_str[(int)pTRACK.TYPE] << "\n";
 		
 		//Print all INDEXs contained in that TRACK
 		for(size_t iIdx  = 0; iIdx < pTRACK.INDEX.size(); iIdx++) {

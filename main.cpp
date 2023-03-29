@@ -13,7 +13,7 @@
 *******************************************************************************/
 #include <iostream>
 
-#include "cue-handler.hpp"
+#include "CueHandler.hpp"
 
 int main() {
 	//Exectuion is done.

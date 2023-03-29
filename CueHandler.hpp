@@ -126,19 +126,22 @@ class CueHandler {
 	//Returns the TRACK type string from t_TRACK_str via enum
 	std::string TRACKTypeToStr(const t_TRACK);
 	
+	
+	
+	
 	////////////////////////////////////////////////////////////////////////////
-	//Validation functions. Returns specific error codes
+	//Validation functions. End execution or warn the user if issues occur
 	//Validate an input .cue file string (argv[1])
-	int validateCueFilename(std::string);
+	void validateCueFilename(std::string);
 	
 	//Validate FILE
-	int validateFILE(const FileData &);
+	void validateFILE(const FileData &);
 	
 	//Validate TRACK
-	int validateTRACK(const TrackData &);
+	void validateTRACK(const TrackData &);
 	
 	//Validate INDEX
-	int validateINDEX(const IndexData &);
+	void validateINDEX(const IndexData &);
 	
 	////////////////////////////////////////////////////////////////////////////
 	//Push a new FILE to FILE[]
