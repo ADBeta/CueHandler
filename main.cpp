@@ -16,6 +16,17 @@
 #include "CueHandler.hpp"
 
 int main() {
+	
+	CueHandler cueFile("/home/ash/Downloads/psx/Vib-Ribbon/Vib-Ribbon.cue");
+	cueFile.strictLevel = 2;
+	
+	
+	cueFile.getCueData();
+
+	for(int currBinFile = 0; currBinFile < cueFile.FILE.size(); currBinFile++) {
+		cueFile.printFILE( cueFile.FILE[currBinFile] );
+	}
+
 	//Exectuion is done.
 	return 0;
 }

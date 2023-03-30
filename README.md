@@ -1,6 +1,6 @@
 ﻿# CueHandler
 
-CueHandler is a very lightweight library for C++11 and later projects, that 
+CueHandler is a very lightweight library for C++11 and later, that 
 allows for simple, fast and reliable processing of .cue files, with ability
 to pass the files inside the .cue file to external libraries for dumping or
 processing etc.
@@ -17,12 +17,12 @@ improve your workflow. Check out [TeFiEd's GitHub here](https://github.com/ADBet
 **Note:** cue-handler is currently set up for PSX games, assuming 2352 bytes per
 sector. I an working on eliminating this restriction in future versions.
 
-## THIS IS A WORK IN PROGRESS. NOT YET FUNCTIONAL!!
 
 ----
 ## TODO
 * remove depends on TeFiEd??
 * add more FILE types as needed
+* Create more helper funtions to simplify things like merging bin files etc
 
 ## Licence
 <b> 2023 ADBeta </b>  

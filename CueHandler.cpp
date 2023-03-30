@@ -15,12 +15,11 @@
 #include <iostream>
 #include <vector>
 
-//TODO 
-//175		substrNonEmpty
-//484		cleanFILE
 
 
-/*** Error message handler ****************************************************/
+#include <algorithm>
+
+/*** Error Message Handling ***************************************************/
 namespace errStr {
 const char* warnMsg = "Warning: CueHandler: ";
 const char* errMsg = "Error: CueHandler: ";
@@ -55,7 +54,6 @@ const char* badPushIndex = "Attempted to push an INDEX, but no TRACK exists\n";
 
 } //namespace errStr
 
-/*** Internal Error Handling **************************************************/
 void CueHandler::handleCueError(const char* msg) {
 	//if the strictness is at 0, just continue, don't worry about the error
 	if(this->strictLevel == 0) return;
@@ -77,8 +75,6 @@ void CueHandler::forceCueError(const char* msg) {
 	std::cerr << errStr::errMsg << msg;
 	exit(EXIT_FAILURE);
 }
-
-
 
 /*** CueHandler Functions *****************************************************/
 CueHandler::CueHandler(const std::string filename) {
@@ -104,15 +100,6 @@ CueHandler::~CueHandler() {
 	FILE.clear();
 	FILE.shrink_to_fit();
 }
-
-
-
-
-
-
-
-
-
 
 /*** Enum mapped strings for type detection ***********************************/
 const std::string t_FILE_str[] = {
@@ -167,10 +154,9 @@ t_TRACK CueHandler::TRACKStrToType(const std::string trackStr) {
 }
 
 t_FILE CueHandler::FILEStrToType(const std::string fileStr) {
-	//The FILE type is after the last '"'. Remove any leading or trailing ' '
-	size_t lastQuote = fileStr.find_last_of("\"");
-	//TODO
-	std::string typeStr = substrNonEmpty(fileStr, lastQuote, std::string::npos);
+	//The FILE type string is after the last " in the string, to end of line.
+	std::string typeStr = substrNonEmpty(fileStr, fileStr.find_last_of("\"")+1, 
+	                                     fileStr.length());
 	
 	//If the FILE type string is empty, this is extremely corrupt. Force error
 	if(typeStr == "") forceCueError(errStr::invalidFILE);
@@ -328,15 +314,6 @@ void CueHandler::pushINDEX(const unsigned int ID, const unsigned long BYTES) {
 	pointerTRACK->INDEX.push_back(tempINDEX);
 }
 
-
-
-
-
-
-
-
-
-
 /*** CUE String Generation ****************************************************/
 std::string CueHandler::generateFILELine(const FileData &refFILE) {
 	//Validate will end execution or warn if there are issues
@@ -382,12 +359,6 @@ std::string CueHandler::generateINDEXLine(const IndexData &refINDEX) {
 	
 	return outputLine;
 }
-
-
-
-
-
-
 
 /*** CUE Data handling ********************************************************/
 std::string CueHandler::getFilenameFromLine(const std::string line) {
@@ -473,12 +444,10 @@ void CueHandler::getCueData() {
 	}
 }
 
-
-//TODO
+/* This function is niche, will add handlers and helpers to do this when needed
+in specific execution, not here in CueHandler
 int CueHandler::combineCueFiles(CueHandler &combined, const std::string outBin,
                                 const std::vector <unsigned long> offsetBytes) {
-	//Clear the pointer object FILE vector RAM
-	//TODO
 	combined.cleanFILE();
 		
 	//Push the passed filename (relative, not output) to the FILE Vector
@@ -511,6 +480,7 @@ int CueHandler::combineCueFiles(CueHandler &combined, const std::string outBin,
 	
 	return 0;
 }
+*/
 
 void CueHandler::outputCueFile() {
 	//Try to create a new TeFiEd file. Exit if not
@@ -679,6 +649,24 @@ std::string CueHandler::getWord(const std::string input, unsigned int index) {
 	//If the index could not be found, return an empty string
 	if(wordIndex < index) return "";
 	return output;
+}
+
+//Pass a string, start and end pos, returns substring of input, ignoring spaces
+std::string CueHandler::substrNonEmpty(std::string input, size_t s, size_t e) {
+	//If the input is empty, return empty
+	if(input.empty() == true) return "";
+	
+	//If end pos is greater than the string length, set it to the length
+	if(e > input.length()) e = input.length();
+
+	//Overwrite s and e with the non-empty char positions
+	//Find the first non-empty char starting from start pos
+	s = input.find_first_not_of("\t ", s);
+	//Find the last non-empty char starting from end pos. +1 to align correctly
+	e = input.find_last_not_of("\t ", e) + 1;
+	
+	//Return a substring from the new start pos, to (end - start) length
+	return input.substr(s, e - s);
 }
 
 std::string CueHandler::padIntStr(const unsigned long val, 

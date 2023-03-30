@@ -45,8 +45,8 @@ enum class t_TRACK {
 };
 
 //Strings of respective types mapped to enum values
-extern const std::string t_FILE_str[];
-extern const std::string t_TRACK_str[];
+//extern const std::string t_FILE_str[];
+//extern const std::string t_TRACK_str[];
 
 /*** Cue file data structs ****************************************************/
 //Grandchild INDEX (3rd level)
@@ -82,8 +82,60 @@ class CueHandler {
 	~CueHandler();
 	
 	
+	//Vector of FILEs. Cue Data is stored in this nested vector (INDEX & TRACK)
+	std::vector <FileData> FILE;
 	
-	//Internal error handler TODO Private. Prints error or waning, or ignores
+	/*** Input / Output CUE Handling ******************************************/
+	//Gets the FILENAME from a FILE line string
+	std::string getFilenameFromLine(const std::string line);
+	
+	//Gets all the data from a .cue file and populates the FILE vector.
+	void getCueData();
+	
+	//Output internal .cue data to the cueFile
+	void outputCueFile();
+	
+	//Prints the TRACK and INDEX data of the FileData struct passed.
+	void printFILE(FileData &);
+		
+	/*** Validation functions. calls handleCueError if fails ******************/
+	//Validate an input .cue file string (argv[1])
+	void validateCueFilename(std::string);
+	
+	//Validate FILE
+	void validateFILE(const FileData &);
+	
+	//Validate TRACK
+	void validateTRACK(const TrackData &);
+	
+	//Validate INDEX
+	void validateINDEX(const IndexData &);
+	
+	/*** Push new data to the structs defined by CueHandler *******************/
+	//Push a new FILE to FILE[]
+	void pushFILE(const std::string FN, const t_FILE TYPE);
+	
+	//Push a new TRACK to the last entry in FILE[]
+	void pushTRACK(const unsigned int ID, const t_TRACK TYPE);
+	
+	//Push a new INDEX to the last entry in FILE[].TRACK[]
+	void pushINDEX(const unsigned int ID, const unsigned long BYTES);
+
+	/*** Create a valid .cue file line from struct data ***********************/
+	//Converts FileData Object into a string which is a CUE file line
+	std::string generateFILELine(const FileData &);
+	
+	//Converts TrackData Object into a string which is a CUE file line
+	std::string generateTRACKLine(const TrackData &);
+	
+	//Converts IndexData Object into a string which is a CUE file line
+	std::string generateINDEXLine(const IndexData &);
+	
+	
+	
+	
+	
+	//private:
 	//Errors depending on strictLevel
 	void handleCueError(const char* msg);
 	
@@ -96,21 +148,10 @@ class CueHandler {
 	//2: Error & Exit
 	unsigned char strictLevel = 0;
 	
-	
-	
-	
-	
 	//TeFiEd Object to hold the .cue file, to skin the text inside
-	TeFiEd *cueFile; //TeFiEd text file object //TODO private
+	TeFiEd *cueFile; //TeFiEd text file object
 	
-	
-	//Vector of FILEs. Cue Data is stored in this nested vector (INDEX & TRACK)
-	std::vector <FileData> FILE;
-	
-	
-	
-	
-	/*** Cue file data functions **********************************************/
+	/*** Convert line information into struct type data ***********************/
 	//Returns the t_LINE of the string passed (whole line from cue file)
 	t_LINE LINEStrToType(const std::string lineStr);
 	
@@ -125,82 +166,6 @@ class CueHandler {
 	
 	//Returns the TRACK type string from t_TRACK_str via enum
 	std::string TRACKTypeToStr(const t_TRACK);
-	
-	
-	
-	
-	////////////////////////////////////////////////////////////////////////////
-	//Validation functions. End execution or warn the user if issues occur
-	//Validate an input .cue file string (argv[1])
-	void validateCueFilename(std::string);
-	
-	//Validate FILE
-	void validateFILE(const FileData &);
-	
-	//Validate TRACK
-	void validateTRACK(const TrackData &);
-	
-	//Validate INDEX
-	void validateINDEX(const IndexData &);
-	
-	////////////////////////////////////////////////////////////////////////////
-	//Push a new FILE to FILE[]
-	void pushFILE(const std::string FN, const t_FILE TYPE);
-	
-	//Push a new TRACK to the last entry in FILE[]
-	void pushTRACK(const unsigned int ID, const t_TRACK TYPE);
-	
-	//Push a new INDEX to the last entry in FILE[].TRACK[]
-	void pushINDEX(const unsigned int ID, const unsigned long BYTES);
-
-	////////////////////////////////////////////////////////////////////////////
-	//Converts FileData Object into a string which is a CUE file line
-	std::string generateFILELine(const FileData &);
-	
-	//Converts TrackData Object into a string which is a CUE file line
-	std::string generateTRACKLine(const TrackData &);
-	
-	//Converts IndexData Object into a string which is a CUE file line
-	std::string generateINDEXLine(const IndexData &);
-	
-	
-	
-	
-	
-	
-	/*** Input / Output CUE Handling ******************************************/
-	//Gets the FILENAME from a FILE line string
-	std::string getFilenameFromLine(const std::string line);
-	
-	//Gets all the data from a .cue file and populates the FILE vector.
-	void getCueData();
-	
-	//Combines all the cue FILE data (removes seperate files) and pushes it
-	//to the CueHandler object passed via reference.
-	int combineCueFiles(CueHandler &combined, const std::string outFN,
-	                    const std::vector <unsigned long> offsetBytes);
-	
-	//Output internal .cue data to the cueFile
-	void outputCueFile();
-	
-	//Prints the TRACK and INDEX data of the FileData struct passed.
-	void printFILE(FileData &);
-	
-	
-	
-	/*** **********************************************************************/
-	//Read an existing cue file into the TeFiEd object
-	void read();
-	
-	//Create a new cue file
-	void create();
-
-	/*** Writing Functions ****************************************************/
-	//Output (overwrite) the TeFiEd object RAM into the file.
-	void write();
-	
-	
-	
 
 	/** Helper Functions ******************************************************/
 	//Converts a number of bytes into an Audio CD timestamp.
@@ -211,6 +176,9 @@ class CueHandler {
 	
 	//Modified from TeFiEd. Returns -index- word in a string
 	std::string getWord(const std::string input, unsigned int index);
+	
+	//Pass a string, start and end pos. Returns a substring ignoring spaces
+	std::string substrNonEmpty(std::string input, size_t s, size_t e);
 	
 	//Takes an input uint32_t, zero-pads to -pad- then return a string
 	std::string padIntStr(const unsigned long val, const unsigned int len = 0,
